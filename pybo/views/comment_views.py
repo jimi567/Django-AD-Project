@@ -45,6 +45,7 @@ def comment_modify_question(request, comment_id):
             comment = form.save(commit=False)
             comment.author = request.user
             comment.modify_date = timezone.now()
+            comment.modify_count += 1
             comment.save()
             return redirect('{}#comment_{}'.format(
                 resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
@@ -81,6 +82,7 @@ def comment_create_answer(request, answer_id):
             comment.author = request.user
             comment.create_date = timezone.now()
             comment.answer = answer
+            comment.question = answer.question
             comment.save()
             return redirect('{}#comment_{}'.format(
                 resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
@@ -106,6 +108,7 @@ def comment_modify_answer(request, comment_id):
             comment = form.save(commit=False)
             comment.author = request.user
             comment.modify_date = timezone.now()
+            comment.modify_count += 1
             comment.save()
             return redirect('{}#comment_{}'.format(
                 resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
