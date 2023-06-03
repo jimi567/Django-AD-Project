@@ -44,10 +44,20 @@ def detail(request, question_id):
     pybo 내용 출력
     """
     question = get_object_or_404(Question, pk=question_id)
-    comment_list = Comment.objects.all().filter(question = question)
+
     page = request.GET.get('page', '1')  # 페이지
+    so = request.GET.get('so', 'recent')  # 정렬 기준
+
+    # 정렬
+    if so == 'recommend':
+        comment_list = Comment.objects.filter(question=question, answer=None) \
+            .annotate(num_voter=Count('voter')) \
+            .order_by('-num_voter', '-create_date')
+    else:  # 최신순
+        comment_list = Comment.objects.filter(question=question, answer=None).order_by('-create_date')
+
     paginator = Paginator(comment_list, 8)  # 페이지당 8개씩 보여주기
     page_obj = paginator.get_page(page)
 
-    context = {'question': question, 'comment_list': page_obj}
+    context = {'question': question, 'comment_list': page_obj, 'so': so}
     return render(request, 'pybo/question_detail.html', context)

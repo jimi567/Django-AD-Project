@@ -30,6 +30,7 @@ def vote_answer(request, answer_id):
         answer.voter.add(request.user)
     return redirect('pybo:detail', question_id=answer.question.id)
 
+
 @login_required(login_url='common:login')
 def vote_comment(request, comment_id):
     """
