@@ -2,9 +2,13 @@
 
 웹서버 컴퓨팅 AD프로젝트
 
-팀원
-xxxx1583 김기범
+### 팀원
+|학번|이름|
+|------|---|
+|xxxx1583|김기범|
+|xxxx1656|유성현|
 
+----------------------
 
 ### 1. 질문 및 답변 수정에 대한 히스토리 viewing 
 ```python
@@ -29,7 +33,7 @@ class Answer(models.Model):
     voter = models.ManyToManyField(User, related_name='voter_answer')
 ```
     
-pybo/models.py 의 Question과 Answer 모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
+1. pybo/models.py 의 Question과 Answer 모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
 
 ```python
 def answer_modify(request, answer_id):
@@ -56,7 +60,7 @@ def answer_modify(request, answer_id):
     context = {'answer': answer, 'form': form}
     return render(request, 'pybo/answer_form.html', context)
 ```
-pybo/views/answer_views.py 와 question_views.py 에서 각각 answer_modify함수와 question_modify함수가 호출되어 저장될 때마다
+2. pybo/views/answer_views.py 와 question_views.py 에서 각각 answer_modify함수와 question_modify함수가 호출되어 저장될 때마다
 modify_count가 1씩 증가하도록 한다.
 
 ```html
@@ -67,9 +71,9 @@ modify_count가 1씩 증가하도록 한다.
 ```
 ![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/3633a5e4-5bb5-41da-9899-237f22811dc0)
 
-마지막으로 question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
+3. 마지막으로 question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
 
-### 질문 댓글에 대한 페이지네이션과 정렬 기능
+### 2. 질문 댓글에 대한 페이지네이션과 정렬 기능
 
 1. 테스트용 질문글에 댓글 100개 임의로 추가
     
