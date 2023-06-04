@@ -11,6 +11,8 @@
 ----------------------
 
 ### 1. 질문 및 답변 수정에 대한 히스토리 viewing 
+    
+1. pybo/models.py 의 Question과 Answer 모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
 ```python
 class Question(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_question')
@@ -32,8 +34,8 @@ class Answer(models.Model):
     modify_count = models.IntegerField(default=0)
     voter = models.ManyToManyField(User, related_name='voter_answer')
 ```
-    
-1. pybo/models.py 의 Question과 Answer 모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
+2. pybo/views/answer_views.py 와 question_views.py 에서 각각 answer_modify함수와 question_modify함수가 호출되어 저장될 때마다
+modify_count가 1씩 증가하도록 한다.
 
 ```python
 def answer_modify(request, answer_id):
@@ -60,8 +62,6 @@ def answer_modify(request, answer_id):
     context = {'answer': answer, 'form': form}
     return render(request, 'pybo/answer_form.html', context)
 ```
-2. pybo/views/answer_views.py 와 question_views.py 에서 각각 answer_modify함수와 question_modify함수가 호출되어 저장될 때마다
-modify_count가 1씩 증가하도록 한다.
 
 ```html
     <div class="badge badge-light p-2 text-left mx-3">
@@ -69,9 +69,10 @@ modify_count가 1씩 증가하도록 한다.
         <div>{{ question.modify_date }}</div>
     </div>
 ```
+3. 마지막으로 question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
 ![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/3633a5e4-5bb5-41da-9899-237f22811dc0)
 
-3. 마지막으로 question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
+
 
 ### 2. 질문 댓글에 대한 페이지네이션과 정렬 기능
 
@@ -350,6 +351,81 @@ if form.is_valid():
 
 
 ### 4. 댓글 수정 횟수 표시 기능
+1. 1번 문제와 마찬가지로 pybo/models.py 의 Comment모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
+```python
+class Comment(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_comment')
+    content = models.TextField()
+    create_date = models.DateTimeField()
+    modify_date = models.DateTimeField(null=True, blank=True)
+    modify_count = models.IntegerField(default=0)
+    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE)
+    answer = models.ForeignKey(Answer, null=True, blank=True, on_delete=models.CASCADE)
+    voter = models.ManyToManyField(User, related_name='voter_comment')
+```
+
+2. pybo/views/comment_views.py 에서 각각 comment_modify_answer함수와 comment_modify_question함수가 호출되어 저장될 때마다 modify_count가 1씩 증가하도록 한다.
+```python
+def comment_modify_answer(request, comment_id):
+    """
+    pybo 답글댓글수정
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글수정권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.answer.question.id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.modify_date = timezone.now()
+            comment.modify_count += 1
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
+    else:
+        form = CommentForm(instance=comment)
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+```
+```python
+def comment_modify_question(request, comment_id):
+    """
+    pybo 질문댓글수정
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글수정권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.question.id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.modify_date = timezone.now()
+            comment.modify_count += 1
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
+    else:
+        form = CommentForm(instance=comment)
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+```
+3. 마지막으로  question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
+```html
+<span>
+    - {{ comment.author }}, {{ comment.create_date }}
+    {% if comment.modify_date %}
+    (수정:{{ comment.modify_date }}, 수정된 횟수:{{ comment.modify_count }})
+    {% endif %}
+</span>
+```
+![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/b71fcdcd-af78-4d07-96ad-18d1033ae8d0)
+
 
 ### 5.comment view 분리 
 
