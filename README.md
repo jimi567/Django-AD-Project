@@ -63,13 +63,14 @@ def answer_modify(request, answer_id):
     return render(request, 'pybo/answer_form.html', context)
 ```
 
+
+3. 마지막으로 question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
 ```html
     <div class="badge badge-light p-2 text-left mx-3">
         <div class="mb-2"> 수정된 횟수 : {{ question.modify_count }}</div>
         <div>{{ question.modify_date }}</div>
     </div>
 ```
-3. 마지막으로 question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
 ![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/3633a5e4-5bb5-41da-9899-237f22811dc0)
 
 
