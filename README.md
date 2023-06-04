@@ -287,6 +287,68 @@ def detail(request, question_id):
 
 ### 3.댓글 추천 기능
 
+1. Comment 모델에 voter 필드를 추가하고, related_name 옵션을 추가한다.
+```python
+class Comment(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_comment')
+    content = models.TextField()
+    create_date = models.DateTimeField()
+    modify_date = models.DateTimeField(null=True, blank=True)
+    modify_count = models.IntegerField(default=0)
+    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE)
+    answer = models.ForeignKey(Answer, null=True, blank=True, on_delete=models.CASCADE)
+    voter = models.ManyToManyField(User, related_name='voter_comment')
+```
+
+2. vote_views에 vote_comment 함수를 추가한다.
+```python
+def vote_comment(request, comment_id):
+    """
+    pybo 댓글추천등록
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user == comment.author:
+        messages.error(request, '본인이 작성한 글은 추천할수 없습니다')
+    else:
+        comment.voter.add(request.user)
+    return redirect('pybo:detail', question_id=comment.question.id)
+```
+![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/31f22299-ed8b-44d7-a913-ad3954b6ae20)
+
+- 질문에 달린 댓글의 경우 잘 작동하지만 답변에 달린 댓글의 경우 redirection 시 question_id가 없어 오류가 발생한다.
+
+```python
+if form.is_valid():
+    comment = form.save(commit=False)
+    comment.author = request.user
+    comment.create_date = timezone.now()
+    comment.answer = answer
+    comment.question = answer.question
+    comment.save()
+```
+- 따라서 Comment_create_answer 함수에서 answer의 question을 불러와 답변댓글도 question.id까지 저장하도록 수정한다.
+
+3. question_detail.html 템플릿을 수정한다.
+```html
+... 생략 ...
+{% if request.user == comment.author %}
+                                <a href="{% url 'pybo:comment_modify_question' comment.id  %}" class="small">수정</a>,
+                                <a href="#" class="small delete"
+                                   data-uri="{% url 'pybo:comment_delete_question' comment.id  %}">삭제</a>
+                                {% endif %}
+                                <div class="float-right">
+                                    <span class="bg-light text-center p-2 border">{{ comment.voter.count }}</span>
+                                    <span href="#" data-uri="{% url 'pybo:vote_comment' comment.id  %}"
+                                    class=" temp recommend btn btn-sm btn-secondary ">추천</span>
+                                </div>
+... 생략 ...
+```
+
+4. 작동 결과 화면
+![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/4da0457b-392d-4009-836e-7388c4b9c59f)
+
+
+
 ### 4. 댓글 수정 횟수 표시 기능
 
 ### 5.comment view 분리 
