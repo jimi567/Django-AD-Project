@@ -73,9 +73,320 @@ def answer_modify(request, answer_id):
 ```
 ![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/3633a5e4-5bb5-41da-9899-237f22811dc0)
 
+### 2.comment view 분리 
+
+1. pybo/urls.py의 매핑정보를 다음처럼 변경  
+   ```python
+   ...(생략)...
+    # comment_views.py
+    # path('comment/create/question/<int:question_id>/', comment_views.comment_create_question, name='comment_create_question'),
+    # path('comment/modify/question/<int:comment_id>/', comment_views.comment_modify_question, name='comment_modify_question'),
+    # path('comment/delete/question/<int:comment_id>/', comment_views.comment_delete_question, name='comment_delete_question'),
+    # path('comment/create/answer/<int:answer_id>/', comment_views.comment_create_answer, name='comment_create_answer'),
+    # path('comment/modify/answer/<int:comment_id>/', comment_views.comment_modify_answer, name='comment_modify_answer'),
+    # path('comment/delete/answer/<int:comment_id>/', comment_views.comment_delete_answer, name='comment_delete_answer'),
+
+    # comment_question_views.py
+    path('comment/create/question/<int:question_id>/', comment_question_views.comment_create_question, name='comment_create_question'),
+    path('comment/modify/question/<int:comment_id>/', comment_question_views.comment_modify_question, name='comment_modify_question'),
+    path('comment/delete/question/<int:comment_id>/', comment_question_views.comment_delete_question, name='comment_delete_question'),
+    # comment_answer_views.py
+    path('comment/create/answer/<int:answer_id>/', comment_answer_views.comment_create_answer, name='comment_create_answer'),
+    path('comment/modify/answer/<int:comment_id>/', comment_answer_views.comment_modify_answer, name='comment_modify_answer'),
+    path('comment/delete/answer/<int:comment_id>/', comment_answer_views.comment_delete_answer, name='comment_delete_answer'),
+    ...(생략)...
+    ```
 
 
-### 2. 질문 댓글에 대한 페이지네이션과 정렬 기능
+2. 기존의 comment_views.py 삭제
+3. comment_question_views.py 추가
+ ```python
+ from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, get_object_or_404, redirect, resolve_url
+from django.utils import timezone
+
+from ..forms import CommentForm
+from ..models import Question, Comment
+
+
+@login_required(login_url='common:login')
+def comment_create_question(request, question_id):
+    """
+    pybo 질문댓글등록
+    """
+    question = get_object_or_404(Question, pk=question_id)
+    if request.method == "POST":
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.create_date = timezone.now()
+            comment.question = question
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
+    else:
+        form = CommentForm()
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+
+
+@login_required(login_url='common:login')
+def comment_modify_question(request, comment_id):
+    """
+    pybo 질문댓글수정
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글수정권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.question.id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.modify_date = timezone.now()
+            comment.modify_count += 1
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
+    else:
+        form = CommentForm(instance=comment)
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+
+
+@login_required(login_url='common:login')
+def comment_delete_question(request, comment_id):
+    """
+    pybo 질문댓글삭제
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글삭제권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.question_id)
+    else:
+        comment.delete()
+    return redirect('pybo:detail', question_id=comment.question_id)
+```
+4. comment_answer_views.py 추가
+```python
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, get_object_or_404, redirect, resolve_url
+from django.utils import timezone
+
+from ..forms import CommentForm
+from ..models import Answer, Comment
+
+
+@login_required(login_url='common:login')
+def comment_create_answer(request, answer_id):
+    """
+    pybo 답글댓글등록
+    """
+    answer = get_object_or_404(Answer, pk=answer_id)
+    if request.method == "POST":
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.create_date = timezone.now()
+            comment.answer = answer
+            comment.question = answer.question
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
+    else:
+        form = CommentForm()
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+
+
+@login_required(login_url='common:login')
+def comment_modify_answer(request, comment_id):
+    """
+    pybo 답글댓글수정
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글수정권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.answer.question.id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.modify_date = timezone.now()
+            comment.modify_count += 1
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
+    else:
+        form = CommentForm(instance=comment)
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+
+
+@login_required(login_url='common:login')
+def comment_delete_answer(request, comment_id):
+    """
+    pybo 답글댓글삭제
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글삭제권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.answer.question.id)
+    else:
+        comment.delete()
+    return redirect('pybo:detail', question_id=comment.answer.question.id)
+
+```
+
+### 3.댓글 추천 기능
+
+1. Comment 모델에 voter 필드를 추가하고, related_name 옵션을 추가한다.
+```python
+class Comment(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_comment')
+    content = models.TextField()
+    create_date = models.DateTimeField()
+    modify_date = models.DateTimeField(null=True, blank=True)
+    modify_count = models.IntegerField(default=0)
+    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE)
+    answer = models.ForeignKey(Answer, null=True, blank=True, on_delete=models.CASCADE)
+    voter = models.ManyToManyField(User, related_name='voter_comment')
+```
+
+2. vote_views에 vote_comment 함수를 추가한다.
+```python
+def vote_comment(request, comment_id):
+    """
+    pybo 댓글추천등록
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user == comment.author:
+        messages.error(request, '본인이 작성한 글은 추천할수 없습니다')
+    else:
+        comment.voter.add(request.user)
+    return redirect('pybo:detail', question_id=comment.question.id)
+```
+![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/31f22299-ed8b-44d7-a913-ad3954b6ae20)
+
+- 질문에 달린 댓글의 경우 잘 작동하지만 답변에 달린 댓글의 경우 redirection 시 question_id가 없어 오류가 발생한다.
+
+```python
+if form.is_valid():
+    comment = form.save(commit=False)
+    comment.author = request.user
+    comment.create_date = timezone.now()
+    comment.answer = answer
+    comment.question = answer.question
+    comment.save()
+```
+- 따라서 Comment_create_answer 함수에서 answer의 question을 불러와 답변댓글도 question.id까지 저장하도록 수정한다.
+
+3. question_detail.html 템플릿을 수정한다.
+```html
+... 생략 ...
+{% if request.user == comment.author %}
+                                <a href="{% url 'pybo:comment_modify_question' comment.id  %}" class="small">수정</a>,
+                                <a href="#" class="small delete"
+                                   data-uri="{% url 'pybo:comment_delete_question' comment.id  %}">삭제</a>
+                                {% endif %}
+                                <div class="float-right">
+                                    <span class="bg-light text-center p-2 border">{{ comment.voter.count }}</span>
+                                    <span href="#" data-uri="{% url 'pybo:vote_comment' comment.id  %}"
+                                    class=" temp recommend btn btn-sm btn-secondary ">추천</span>
+                                </div>
+... 생략 ...
+```
+
+4. 작동 결과 화면
+![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/4da0457b-392d-4009-836e-7388c4b9c59f)
+
+
+
+### 4. 댓글 수정 횟수 표시 기능
+1. 1번 문제와 마찬가지로 pybo/models.py 의 Comment모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
+```python
+class Comment(models.Model):
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_comment')
+    content = models.TextField()
+    create_date = models.DateTimeField()
+    modify_date = models.DateTimeField(null=True, blank=True)
+    modify_count = models.IntegerField(default=0)
+    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE)
+    answer = models.ForeignKey(Answer, null=True, blank=True, on_delete=models.CASCADE)
+    voter = models.ManyToManyField(User, related_name='voter_comment')
+```
+
+2. pybo/views/comment_views.py 에서 각각 comment_modify_answer함수와 comment_modify_question함수가 호출되어 저장될 때마다 modify_count가 1씩 증가하도록 한다.
+```python
+def comment_modify_answer(request, comment_id):
+    """
+    pybo 답글댓글수정
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글수정권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.answer.question.id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.modify_date = timezone.now()
+            comment.modify_count += 1
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
+    else:
+        form = CommentForm(instance=comment)
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+```
+```python
+def comment_modify_question(request, comment_id):
+    """
+    pybo 질문댓글수정
+    """
+    comment = get_object_or_404(Comment, pk=comment_id)
+    if request.user != comment.author:
+        messages.error(request, '댓글수정권한이 없습니다')
+        return redirect('pybo:detail', question_id=comment.question.id)
+
+    if request.method == "POST":
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.author = request.user
+            comment.modify_date = timezone.now()
+            comment.modify_count += 1
+            comment.save()
+            return redirect('{}#comment_{}'.format(
+                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
+    else:
+        form = CommentForm(instance=comment)
+    context = {'form': form}
+    return render(request, 'pybo/comment_form.html', context)
+```
+3. 마지막으로  question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
+```html
+<span>
+    - {{ comment.author }}, {{ comment.create_date }}
+    {% if comment.modify_date %}
+    (수정:{{ comment.modify_date }}, 수정된 횟수:{{ comment.modify_count }})
+    {% endif %}
+</span>
+```
+![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/b71fcdcd-af78-4d07-96ad-18d1033ae8d0)
+
+### 5. 질문 댓글에 대한 페이지네이션과 정렬 기능
 
 1. 테스트용 질문글에 댓글 100개 임의로 추가
     
@@ -286,317 +597,3 @@ def detail(request, question_id):
 
 + 추천순
 ![image](https://github.com/jimi567/Django-AD-Project/assets/28584160/17f7ebd7-1067-4a51-a1b4-46c87c61eb29)
-
-### 3.댓글 추천 기능
-
-1. Comment 모델에 voter 필드를 추가하고, related_name 옵션을 추가한다.
-```python
-class Comment(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_comment')
-    content = models.TextField()
-    create_date = models.DateTimeField()
-    modify_date = models.DateTimeField(null=True, blank=True)
-    modify_count = models.IntegerField(default=0)
-    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE)
-    answer = models.ForeignKey(Answer, null=True, blank=True, on_delete=models.CASCADE)
-    voter = models.ManyToManyField(User, related_name='voter_comment')
-```
-
-2. vote_views에 vote_comment 함수를 추가한다.
-```python
-def vote_comment(request, comment_id):
-    """
-    pybo 댓글추천등록
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user == comment.author:
-        messages.error(request, '본인이 작성한 글은 추천할수 없습니다')
-    else:
-        comment.voter.add(request.user)
-    return redirect('pybo:detail', question_id=comment.question.id)
-```
-![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/31f22299-ed8b-44d7-a913-ad3954b6ae20)
-
-- 질문에 달린 댓글의 경우 잘 작동하지만 답변에 달린 댓글의 경우 redirection 시 question_id가 없어 오류가 발생한다.
-
-```python
-if form.is_valid():
-    comment = form.save(commit=False)
-    comment.author = request.user
-    comment.create_date = timezone.now()
-    comment.answer = answer
-    comment.question = answer.question
-    comment.save()
-```
-- 따라서 Comment_create_answer 함수에서 answer의 question을 불러와 답변댓글도 question.id까지 저장하도록 수정한다.
-
-3. question_detail.html 템플릿을 수정한다.
-```html
-... 생략 ...
-{% if request.user == comment.author %}
-                                <a href="{% url 'pybo:comment_modify_question' comment.id  %}" class="small">수정</a>,
-                                <a href="#" class="small delete"
-                                   data-uri="{% url 'pybo:comment_delete_question' comment.id  %}">삭제</a>
-                                {% endif %}
-                                <div class="float-right">
-                                    <span class="bg-light text-center p-2 border">{{ comment.voter.count }}</span>
-                                    <span href="#" data-uri="{% url 'pybo:vote_comment' comment.id  %}"
-                                    class=" temp recommend btn btn-sm btn-secondary ">추천</span>
-                                </div>
-... 생략 ...
-```
-
-4. 작동 결과 화면
-![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/4da0457b-392d-4009-836e-7388c4b9c59f)
-
-
-
-### 4. 댓글 수정 횟수 표시 기능
-1. 1번 문제와 마찬가지로 pybo/models.py 의 Comment모델에 modify_count 변수를 추가하여 수정될 때마다 값을 저장하도록 한다.
-```python
-class Comment(models.Model):
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='author_comment')
-    content = models.TextField()
-    create_date = models.DateTimeField()
-    modify_date = models.DateTimeField(null=True, blank=True)
-    modify_count = models.IntegerField(default=0)
-    question = models.ForeignKey(Question, null=True, blank=True, on_delete=models.CASCADE)
-    answer = models.ForeignKey(Answer, null=True, blank=True, on_delete=models.CASCADE)
-    voter = models.ManyToManyField(User, related_name='voter_comment')
-```
-
-2. pybo/views/comment_views.py 에서 각각 comment_modify_answer함수와 comment_modify_question함수가 호출되어 저장될 때마다 modify_count가 1씩 증가하도록 한다.
-```python
-def comment_modify_answer(request, comment_id):
-    """
-    pybo 답글댓글수정
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user != comment.author:
-        messages.error(request, '댓글수정권한이 없습니다')
-        return redirect('pybo:detail', question_id=comment.answer.question.id)
-
-    if request.method == "POST":
-        form = CommentForm(request.POST, instance=comment)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.author = request.user
-            comment.modify_date = timezone.now()
-            comment.modify_count += 1
-            comment.save()
-            return redirect('{}#comment_{}'.format(
-                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
-    else:
-        form = CommentForm(instance=comment)
-    context = {'form': form}
-    return render(request, 'pybo/comment_form.html', context)
-```
-```python
-def comment_modify_question(request, comment_id):
-    """
-    pybo 질문댓글수정
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user != comment.author:
-        messages.error(request, '댓글수정권한이 없습니다')
-        return redirect('pybo:detail', question_id=comment.question.id)
-
-    if request.method == "POST":
-        form = CommentForm(request.POST, instance=comment)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.author = request.user
-            comment.modify_date = timezone.now()
-            comment.modify_count += 1
-            comment.save()
-            return redirect('{}#comment_{}'.format(
-                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
-    else:
-        form = CommentForm(instance=comment)
-    context = {'form': form}
-    return render(request, 'pybo/comment_form.html', context)
-```
-3. 마지막으로  question_detail.html 템플릿을 수정하여 수정된 횟수가 보이도록 한다.
-```html
-<span>
-    - {{ comment.author }}, {{ comment.create_date }}
-    {% if comment.modify_date %}
-    (수정:{{ comment.modify_date }}, 수정된 횟수:{{ comment.modify_count }})
-    {% endif %}
-</span>
-```
-![image](https://github.com/jimi567/Django-AD-Project/assets/31495131/b71fcdcd-af78-4d07-96ad-18d1033ae8d0)
-
-
-### 5.comment view 분리 
-
-1. pybo/urls.py의 매핑정보를 다음처럼 변경  
-   ```python
-   ...(생략)...
-    # comment_views.py
-    # path('comment/create/question/<int:question_id>/', comment_views.comment_create_question, name='comment_create_question'),
-    # path('comment/modify/question/<int:comment_id>/', comment_views.comment_modify_question, name='comment_modify_question'),
-    # path('comment/delete/question/<int:comment_id>/', comment_views.comment_delete_question, name='comment_delete_question'),
-    # path('comment/create/answer/<int:answer_id>/', comment_views.comment_create_answer, name='comment_create_answer'),
-    # path('comment/modify/answer/<int:comment_id>/', comment_views.comment_modify_answer, name='comment_modify_answer'),
-    # path('comment/delete/answer/<int:comment_id>/', comment_views.comment_delete_answer, name='comment_delete_answer'),
-
-    # comment_question_views.py
-    path('comment/create/question/<int:question_id>/', comment_question_views.comment_create_question, name='comment_create_question'),
-    path('comment/modify/question/<int:comment_id>/', comment_question_views.comment_modify_question, name='comment_modify_question'),
-    path('comment/delete/question/<int:comment_id>/', comment_question_views.comment_delete_question, name='comment_delete_question'),
-    # comment_answer_views.py
-    path('comment/create/answer/<int:answer_id>/', comment_answer_views.comment_create_answer, name='comment_create_answer'),
-    path('comment/modify/answer/<int:comment_id>/', comment_answer_views.comment_modify_answer, name='comment_modify_answer'),
-    path('comment/delete/answer/<int:comment_id>/', comment_answer_views.comment_delete_answer, name='comment_delete_answer'),
-    ...(생략)...
-    ```
-
-
-2. 기존의 comment_views.py 삭제
-3. comment_question_views.py 추가
- ```python
- from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404, redirect, resolve_url
-from django.utils import timezone
-
-from ..forms import CommentForm
-from ..models import Question, Comment
-
-
-@login_required(login_url='common:login')
-def comment_create_question(request, question_id):
-    """
-    pybo 질문댓글등록
-    """
-    question = get_object_or_404(Question, pk=question_id)
-    if request.method == "POST":
-        form = CommentForm(request.POST)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.author = request.user
-            comment.create_date = timezone.now()
-            comment.question = question
-            comment.save()
-            return redirect('{}#comment_{}'.format(
-                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
-    else:
-        form = CommentForm()
-    context = {'form': form}
-    return render(request, 'pybo/comment_form.html', context)
-
-
-@login_required(login_url='common:login')
-def comment_modify_question(request, comment_id):
-    """
-    pybo 질문댓글수정
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user != comment.author:
-        messages.error(request, '댓글수정권한이 없습니다')
-        return redirect('pybo:detail', question_id=comment.question.id)
-
-    if request.method == "POST":
-        form = CommentForm(request.POST, instance=comment)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.author = request.user
-            comment.modify_date = timezone.now()
-            comment.modify_count += 1
-            comment.save()
-            return redirect('{}#comment_{}'.format(
-                resolve_url('pybo:detail', question_id=comment.question.id), comment.id))
-    else:
-        form = CommentForm(instance=comment)
-    context = {'form': form}
-    return render(request, 'pybo/comment_form.html', context)
-
-
-@login_required(login_url='common:login')
-def comment_delete_question(request, comment_id):
-    """
-    pybo 질문댓글삭제
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user != comment.author:
-        messages.error(request, '댓글삭제권한이 없습니다')
-        return redirect('pybo:detail', question_id=comment.question_id)
-    else:
-        comment.delete()
-    return redirect('pybo:detail', question_id=comment.question_id)
-```
-4. comment_answer_views.py 추가
-```python
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404, redirect, resolve_url
-from django.utils import timezone
-
-from ..forms import CommentForm
-from ..models import Answer, Comment
-
-
-@login_required(login_url='common:login')
-def comment_create_answer(request, answer_id):
-    """
-    pybo 답글댓글등록
-    """
-    answer = get_object_or_404(Answer, pk=answer_id)
-    if request.method == "POST":
-        form = CommentForm(request.POST)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.author = request.user
-            comment.create_date = timezone.now()
-            comment.answer = answer
-            comment.question = answer.question
-            comment.save()
-            return redirect('{}#comment_{}'.format(
-                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
-    else:
-        form = CommentForm()
-    context = {'form': form}
-    return render(request, 'pybo/comment_form.html', context)
-
-
-@login_required(login_url='common:login')
-def comment_modify_answer(request, comment_id):
-    """
-    pybo 답글댓글수정
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user != comment.author:
-        messages.error(request, '댓글수정권한이 없습니다')
-        return redirect('pybo:detail', question_id=comment.answer.question.id)
-
-    if request.method == "POST":
-        form = CommentForm(request.POST, instance=comment)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.author = request.user
-            comment.modify_date = timezone.now()
-            comment.modify_count += 1
-            comment.save()
-            return redirect('{}#comment_{}'.format(
-                resolve_url('pybo:detail', question_id=comment.answer.question.id), comment.id))
-    else:
-        form = CommentForm(instance=comment)
-    context = {'form': form}
-    return render(request, 'pybo/comment_form.html', context)
-
-
-@login_required(login_url='common:login')
-def comment_delete_answer(request, comment_id):
-    """
-    pybo 답글댓글삭제
-    """
-    comment = get_object_or_404(Comment, pk=comment_id)
-    if request.user != comment.author:
-        messages.error(request, '댓글삭제권한이 없습니다')
-        return redirect('pybo:detail', question_id=comment.answer.question.id)
-    else:
-        comment.delete()
-    return redirect('pybo:detail', question_id=comment.answer.question.id)
-
-```
