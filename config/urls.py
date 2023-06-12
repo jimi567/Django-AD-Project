@@ -28,15 +28,28 @@ Including another URLconf
 # ]
 
 #fbv
+# from django.contrib import admin
+# from django.urls import include, path
+# from pybo.fbvApp import views
+#
+#
+# urlpatterns = [
+#
+#     path('admin/', admin.site.urls),
+#     path('pybo/', include('pybo.fbvApp.urls')),
+#     path('common/', include('common.urls')),
+#     path('', views.question_list, name='index'),  # '/' 에 해당되는 path
+# ]
+
+#cbv
 from django.contrib import admin
 from django.urls import include, path
-from pybo.fbvApp import views
-
+from pybo.cbvApp import views
 
 urlpatterns = [
 
     path('admin/', admin.site.urls),
-    path('pybo/', include('pybo.fbvApp.urls')),
+    path('pybo/', include('pybo.cbvApp.urls')),
     path('common/', include('common.urls')),
-    path('', views.question_list, name='index'),  # '/' 에 해당되는 path
+    path('', views.QuestionList.as_view(), name='index'),  # '/' 에 해당되는 path
 ]
