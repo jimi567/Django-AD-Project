@@ -12,7 +12,7 @@ class UserSerializer(ModelSerializer):
 
 class QuestionSerializer(ModelSerializer):
 
-    author = serializers.ReadOnlyField(source='author.username')
+    #author = serializers.ReadOnlyField(source='author.username')
     class Meta:
         model = Question
         fields = ['id', 'author', 'subject', 'content', 'create_date', 'modify_date', 'modify_count']

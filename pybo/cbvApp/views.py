@@ -5,9 +5,11 @@ from rest_framework.views import APIView
 from ..models import Question, Answer, Comment
 from ..serializers import QuestionSerializer, AnswerSerializer, CommentsSerializer
 from django.utils import timezone
-
+from rest_framework import permissions
+from ..permission import IsAuthorOrReadonly
 
 class QuestionList(APIView):
+
     def get(self, request):
         question = Question.objects.all()
         serializer = QuestionSerializer(question, many=True)
@@ -15,8 +17,10 @@ class QuestionList(APIView):
         return Response(serializer.data)
 
     def post(self, request):
+        print("abc")
+        print(request.user)
         data = request.data
-        data['author'] = request.user
+        data['author'] = request.user.id
         data['create_date'] = timezone.now()
         serializer = QuestionSerializer(data=data)
         if serializer.is_valid():
@@ -26,6 +30,8 @@ class QuestionList(APIView):
 
 
 class QuestionDetail(APIView):
+    permission_classes = [IsAuthorOrReadonly]
+    print("afsdafasfd")
     def get_object(self, pk):
         try:
             return Question.objects.get(pk=pk)

@@ -49,6 +49,7 @@ from pybo.cbvApp import views
 urlpatterns = [
 
     path('admin/', admin.site.urls),
+    #path('pybo/', include('pybo.urls')),
     path('pybo/', include('pybo.cbvApp.urls')),
     path('common/', include('common.urls')),
     path('', views.QuestionList.as_view(), name='index'),  # '/' 에 해당되는 path
