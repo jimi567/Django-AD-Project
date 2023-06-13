@@ -44,10 +44,14 @@ class QuestionDetail(APIView):
         return Response(serializer.data)
 
     def put(self, request, pk):
+
         question = self.get_object(pk=pk)
+        print(question.modify_count)
         data = request.data
-        data['modify_data'] = timezone.now()
-        data['modify_data'] += 1
+        #print(question.data)
+        data['author'] = request.user.id
+        data['modify_date'] = timezone.now()
+        data['modify_count'] = question.modify_count + 1
         serializer = QuestionSerializer(question, data)
         if serializer.is_valid():
             serializer.save()
